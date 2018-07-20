@@ -47,6 +47,8 @@ function cacheRewards() {
                 ]
             }).then(res => {
                 console.log(res);
+            }, err => {
+                console.error(err);
             });
         }
     });
