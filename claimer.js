@@ -1,4 +1,3 @@
-const superagent = require('superagent');
 const Eos = require('eosjs');
 const config = require('./config.json');
 const httpEndPoint = config.httpEndPoint;
@@ -14,6 +13,7 @@ var eos = Eos({
 
 
 cacheRewards();
+//try every 10 min
 setInterval(cacheRewards, 10 * 60 * 1000 + 5000);
 //////////////////////////
 function cacheRewards() {
@@ -28,7 +28,12 @@ function cacheRewards() {
             return 0;
         }
         return bpay + vpay;
+    }, errs => {
+        console.error(errs);
+        //retry
+        cacheRewards();
     }).then(rewards => {
+        console.log("current rewards:", rewards);
         if (rewards > 0) {
             eos.transaction({
                 // ...headers,
@@ -49,6 +54,8 @@ function cacheRewards() {
                 console.log(res);
             }, err => {
                 console.error(err);
+                //retry
+                cacheRewards();
             });
         }
     });
@@ -56,61 +63,38 @@ function cacheRewards() {
 
 function getGlobal() {
     return new Promise((resolve, reject) => {
-        superagent(httpEndPoint + "/v1/chain/get_table_rows")
-            .set('Content-Type', 'application/json')
-            .send({
-                "scope": "eosio",
-                "code": "eosio",
-                "table": "global",
-                "json": true
-            })
-            .end(function (err, res) {
-                if (err) {
-                    let msg = httpEndPoint + " , http error :" + err;
-                    console.error(msg);
-                    reject(msg);
-                } else if (res.statusCode != 200) {
-                    let msg = httpEndPoint + " status code :" + res.statusCode
-                    console.error(msg);
-                    //retry
-                    reject(msg);
-                } else {
-                    let object = JSON.parse(res.text);
-                    //console.log(object);
-                    resolve(object.rows[0]);
-                }
-            });
+        eos.getTableRows({
+            "scope": "eosio",
+            "code": "eosio",
+            "table": "global",
+            "json": true
+        }).then(res => {
+            resolve(res.rows[0]);
+        }, err => {
+            console.error(err);
+            reject(err);
+        });
     });
 }
 
 function getProducer(name) {
     return new Promise((resolve, reject) => {
-        superagent(httpEndPoint + "/v1/chain/get_table_rows")
-            .set('Content-Type', 'application/json')
-            .send({
-                "scope": "eosio",
-                "code": "eosio",
-                "table": "producers",
-                "lower_bound": name,
-                "limit": 1,
-                "json": true
-            })
-            .end(function (err, res) {
-                if (err) {
-                    let msg = httpEndPoint + " , http error :" + err;
-                    console.error(msg);
-                    reject(msg);
-                } else if (res.statusCode != 200) {
-                    let msg = httpEndPoint + " status code :" + res.statusCode
-                    console.error(msg);
-                    //retry
-                    reject(msg);
-                } else {
-                    let object = JSON.parse(res.text);
-                    //console.log(object);
-                    resolve(object.rows[0]);
-                }
-            });
+        eos.getTableRows({
+            "scope": "eosio",
+            "code": "eosio",
+            "table": "producers",
+            "lower_bound": name,
+            "limit": 1,
+            "json": true
+        }).then(res => {
+            if (!res.rows[0] || name != res.rows[0].owner) {
+                reject("producer not exist!");
+            }
+            resolve(res.rows[0]);
+        }, err => {
+            console.error(err);
+            reject(err);
+        });
     });
 }
 

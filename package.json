@@ -9,7 +9,6 @@
   "author": "Joshua Qiu",
   "license": "ISC",
   "dependencies": {
-    "eosjs": "^15.0.6",
-    "superagent": "^3.8.3"
+    "eosjs": "^16.0.0"
   }
 }
